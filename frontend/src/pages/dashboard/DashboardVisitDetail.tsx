@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { Calendar, Clock, User, ChevronLeft, Check, Image } from 'lucide-react'
+import { User, ChevronLeft, Check, Image } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { getVisit, fetchVisitPhotoBlobUrl, type VisitDetailItem } from '@/api/client'

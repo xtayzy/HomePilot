@@ -169,7 +169,7 @@ export function DashboardSlots() {
             <SlotEditor
               key={visit.id}
               visit={visit}
-              subscription={subscription}
+              subscription={subscription ?? null}
               index={index + 1}
               onSave={() => load()}
               saving={savingId === visit.id}

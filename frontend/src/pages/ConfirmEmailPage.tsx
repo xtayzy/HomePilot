@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Sparkles, CheckCircle, XCircle, Mail } from 'lucide-react'
+import { Sparkles, CheckCircle, Mail } from 'lucide-react'
 import { confirmEmail } from '@/api/client'
 
 export function ConfirmEmailPage() {

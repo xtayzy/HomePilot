@@ -78,7 +78,6 @@ export function ExecutorOverview() {
     return () => { cancelled = true }
   }, [])
 
-  const now = new Date()
   const today = todayISO()
   const weekEnd = weekEndISO()
   const monthStart = monthStartISO()
