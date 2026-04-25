@@ -10,8 +10,8 @@ from app.schemas.auth import (
     RefreshRequest,
     ForgotPasswordRequest,
     ResetPasswordRequest,
-    TokenResponse,
     ConfirmEmailRequest,
+    GoogleSignInRequest,
 )
 from app.schemas.user import UserResponse
 from app.services import auth as auth_service
@@ -46,6 +46,22 @@ async def register_executor(
         "refresh_token": refresh,
         "token_type": "bearer",
         "expires_in": expires_sec,
+    }
+
+
+@router.post("/google", response_model=dict)
+async def login_google(
+    payload: GoogleSignInRequest,
+    db: DbSession,
+):
+    user = await auth_service.login_with_google(db, payload.id_token)
+    access, refresh, expires_sec = auth_service.tokens_for_user(user)
+    return {
+        "access_token": access,
+        "refresh_token": refresh,
+        "token_type": "bearer",
+        "expires_in": expires_sec,
+        "user": UserResponse.model_validate(user),
     }
 
 
@@ -91,7 +107,8 @@ async def forgot_password(
     payload: ForgotPasswordRequest,
     db: DbSession,
 ):
-    return {"message": "Если email зарегистрирован, отправлена ссылка для сброса пароля."}
+    await auth_service.request_password_reset(db, str(payload.email))
+    return {"message": "Если email зарегистрирован, на почту отправлен код для сброса пароля."}
 
 
 @router.post("/reset-password")
@@ -99,6 +116,7 @@ async def reset_password(
     payload: ResetPasswordRequest,
     db: DbSession,
 ):
+    await auth_service.reset_password_with_code(db, payload.token, payload.new_password)
     return {"message": "Пароль успешно изменён."}
 
 

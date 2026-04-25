@@ -4,6 +4,12 @@ import { Button } from '@/components/ui/button'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTariffs } from '@/hooks/useTariffs'
+import { BrandMark } from '@/components/BrandLogo'
+import {
+  BRAND_HOME_HERO,
+  BRAND_HOME_SECONDARY_1,
+  BRAND_HOME_SECONDARY_2,
+} from '@/lib/brand'
 
 /** Краткое описание тарифов для главной (по коду). */
 const HOME_TARIFF_DESC: Record<string, { desc: string; features: string[] }> = {
@@ -74,10 +80,9 @@ export function HomePage() {
             className="relative h-[240px] sm:h-[320px] md:h-[420px] lg:h-[520px] xl:h-[600px] w-full rounded-2xl sm:rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl shadow-forest-900/10"
           >
             <img
-              src="https://picsum.photos/seed/luxuryhome/1600/900"
-              alt="Уютный дом"
+              src={BRAND_HOME_HERO}
+              alt="Уютный дом — HomePilot"
               className="object-cover w-full h-full"
-              referrerPolicy="no-referrer"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
             <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 md:bottom-12 md:left-12 md:right-12 flex flex-col sm:flex-row justify-end gap-3 sm:justify-between sm:items-end text-white">
@@ -86,12 +91,11 @@ export function HomePage() {
                 <p className="text-xl md:text-2xl font-serif">Ограниченное количество мест</p>
               </div>
               <div className="flex items-center gap-3 sm:gap-4 bg-white/10 backdrop-blur-md p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-white/20 w-full sm:w-auto min-w-0">
-                <div className="flex -space-x-3 sm:-space-x-4 shrink-0">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-white bg-stone-200 overflow-hidden">
-                      <img src={`https://picsum.photos/seed/${i + 10}/100/100`} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    </div>
-                  ))}
+                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                  <BrandMark className="h-9 w-9 sm:h-10 sm:w-10 rounded-full border-2 border-white shadow-md" />
+                  <div className="hidden sm:flex h-9 w-9 sm:h-10 sm:w-10 rounded-full border-2 border-white bg-forest-900/40 items-center justify-center text-[10px] sm:text-xs font-semibold text-white">
+                    2k+
+                  </div>
                 </div>
                 <div className="text-left min-w-0">
                   <div className="flex items-center gap-0.5 sm:gap-1 text-yellow-300">
@@ -141,7 +145,11 @@ export function HomePage() {
           <div className="relative min-w-0">
             <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-6">
               <div className="space-y-3 sm:space-y-4 md:space-y-6 mt-6 sm:mt-8 md:mt-12">
-                <img src="https://picsum.photos/seed/detail1/600/800" className="rounded-xl sm:rounded-2xl md:rounded-[2rem] w-full aspect-[3/4] object-cover shadow-lg" alt="" referrerPolicy="no-referrer" />
+                <img
+                  src={BRAND_HOME_SECONDARY_1}
+                  className="rounded-xl sm:rounded-2xl md:rounded-[2rem] w-full aspect-[3/4] object-cover shadow-lg"
+                  alt="Бытовая помощь HomePilot"
+                />
                 <div className="bg-forest-900 p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-2xl md:rounded-[2rem] text-cream-50">
                   <p className="font-serif text-2xl sm:text-3xl mb-1 sm:mb-2">4.9/5</p>
                   <p className="text-xs sm:text-sm opacity-80">Средний рейтинг на основе 5,000 уборок</p>
@@ -152,7 +160,11 @@ export function HomePage() {
                   <Shield className="w-6 h-6 sm:w-8 sm:h-8 mb-2 sm:mb-4" />
                   <p className="font-serif text-base sm:text-lg md:text-xl">100% Гарантия качества</p>
                 </div>
-                <img src="https://picsum.photos/seed/detail2/600/800" className="rounded-xl sm:rounded-2xl md:rounded-[2rem] w-full aspect-[3/4] object-cover shadow-lg" alt="" referrerPolicy="no-referrer" />
+                <img
+                  src={BRAND_HOME_SECONDARY_2}
+                  className="rounded-xl sm:rounded-2xl md:rounded-[2rem] w-full aspect-[3/4] object-cover shadow-lg"
+                  alt="Подписка на уборку и быт"
+                />
               </div>
             </div>
           </div>

@@ -1,9 +1,16 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Calendar, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { listSubscriptions, listVisits, rescheduleVisit, type SubscriptionItem, type VisitItem } from '@/api/client'
+import {
+  listSubscriptions,
+  listVisits,
+  rescheduleVisit,
+  completeStripeCheckout,
+  type SubscriptionItem,
+  type VisitItem,
+} from '@/api/client'
 
 /** Рабочие часы 8:00–18:00. Варианты начала: 8:00–17:00, окончания: 9:00–18:00 */
 const START_OPTIONS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00']
@@ -57,6 +64,7 @@ export function DashboardSlots() {
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const stripeReturnHandled = useRef(false)
 
   const load = () => {
     setLoading(true)
@@ -71,7 +79,33 @@ export function DashboardSlots() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => load(), [])
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search)
+    const sid = sp.get('session_id')
+    if (sp.get('payment') === 'success' && sid && !stripeReturnHandled.current) {
+      stripeReturnHandled.current = true
+      setLoading(true)
+      setError(null)
+      completeStripeCheckout(sid)
+        .then(() => {
+          window.history.replaceState({}, '', window.location.pathname)
+          return Promise.all([listSubscriptions(), listVisits()])
+        })
+        .then(([subs, list]) => {
+          setSubscriptions(subs ?? [])
+          setVisits(list ?? [])
+          if (subs.length > 0) setSelectedId((prev) => prev ?? subs[0].id)
+        })
+        .catch((e) => {
+          stripeReturnHandled.current = false
+          setError(e instanceof Error ? e.message : 'Не удалось подтвердить оплату')
+        })
+        .finally(() => setLoading(false))
+      return
+    }
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- первый заход: либо Stripe return, либо обычная загрузка
+  }, [])
 
   const effectiveSelectedId = selectedId ?? subscriptions[0]?.id ?? null
   const subscription = effectiveSelectedId ? subscriptions.find((s) => s.id === effectiveSelectedId) : null

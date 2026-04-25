@@ -3,13 +3,14 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   Calendar,
+  Headset,
   LogOut,
-  UserRound,
-  Sparkles,
+  Home,
   User,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/contexts/AuthContext'
+import { BrandLockup } from '@/components/BrandLogo'
 import { cn } from '@/lib/utils'
 
 export function ExecutorLayout() {
@@ -32,8 +33,9 @@ export function ExecutorLayout() {
   }
 
   const sidebarItems = [
-    { icon: Sparkles, label: 'Обзор', path: '/executor' },
+    { icon: Home, label: 'Обзор', path: '/executor' },
     { icon: LayoutDashboard, label: 'Мои визиты', path: '/executor/visits' },
+    { icon: Headset, label: 'Поддержка', path: '/executor/support' },
     { icon: User, label: 'Профиль', path: '/executor/profile' },
   ] as const
 
@@ -46,15 +48,7 @@ export function ExecutorLayout() {
     <div className="min-h-screen bg-cream-50 flex">
       <aside className="w-64 lg:w-72 bg-white border-r border-cream-200 hidden md:flex flex-col fixed h-full z-10 shrink-0">
         <div className="p-6 lg:p-8 border-b border-cream-100">
-          <Link
-            to="/"
-            className="flex items-center gap-2 font-serif font-bold text-2xl text-forest-900"
-          >
-            <div className="bg-forest-900 p-2 rounded-full text-cream-50">
-              <UserRound className="w-5 h-5" />
-            </div>
-            HomePilot
-          </Link>
+          <BrandLockup className="text-2xl" />
           <p className="text-xs text-stone-500 mt-2">Кабинет исполнителя</p>
         </div>
         <nav className="flex-1 p-4 lg:p-6 space-y-2 overflow-y-auto">
@@ -65,7 +59,9 @@ export function ExecutorLayout() {
                 ? location.pathname === '/executor'
                 : item.path === '/executor/profile'
                   ? location.pathname === '/executor/profile'
-                  : location.pathname.startsWith('/executor/visits')
+                  : item.path === '/executor/support'
+                    ? location.pathname.startsWith('/executor/support')
+                    : location.pathname.startsWith('/executor/visits')
             return (
               <Link to={item.path} key={item.path} className="block min-w-0">
                 <Button
@@ -103,45 +99,52 @@ export function ExecutorLayout() {
       </aside>
 
       <div className="md:hidden fixed top-0 w-full bg-white border-b border-cream-200 z-50 px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between safe-area-pt">
-        <Link
-          to="/"
-          className="flex items-center gap-2 font-serif font-bold text-lg sm:text-xl text-forest-900 min-w-0"
-        >
-          <UserRound className="w-5 h-5 shrink-0" />
-          <span className="truncate">Исполнитель</span>
-        </Link>
+        <div className="flex flex-col min-w-0 gap-0.5">
+          <BrandLockup className="text-lg sm:text-xl min-w-0" textClassName="truncate" />
+          <span className="text-xs text-stone-500 truncate mt-0.5">Кабинет исполнителя</span>
+        </div>
       </div>
 
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-cream-200 z-50 flex justify-around items-center py-2 safe-area-pb">
         <Link
           to="/executor"
           className={cn(
-            'flex flex-col items-center gap-1 px-3 py-2',
+            'flex flex-col items-center gap-1 px-2 py-2 min-w-0',
             location.pathname === '/executor' ? 'text-forest-700' : 'text-stone-500'
           )}
         >
-          <Sparkles className="w-5 h-5" />
-          <span className="text-xs">Обзор</span>
+          <Home className="w-5 h-5 shrink-0" />
+          <span className="text-[10px] leading-tight text-center">Обзор</span>
         </Link>
         <Link
           to="/executor/visits"
           className={cn(
-            'flex flex-col items-center gap-1 px-3 py-2',
+            'flex flex-col items-center gap-1 px-2 py-2 min-w-0',
             location.pathname.startsWith('/executor/visits') ? 'text-forest-700' : 'text-stone-500'
           )}
         >
-          <Calendar className="w-5 h-5" />
-          <span className="text-xs">Мои визиты</span>
+          <Calendar className="w-5 h-5 shrink-0" />
+          <span className="text-[10px] leading-tight text-center">Визиты</span>
+        </Link>
+        <Link
+          to="/executor/support"
+          className={cn(
+            'flex flex-col items-center gap-1 px-2 py-2 min-w-0',
+            location.pathname.startsWith('/executor/support') ? 'text-forest-700' : 'text-stone-500'
+          )}
+        >
+          <Headset className="w-5 h-5 shrink-0" />
+          <span className="text-[10px] leading-tight text-center">Помощь</span>
         </Link>
         <Link
           to="/executor/profile"
           className={cn(
-            'flex flex-col items-center gap-1 px-3 py-2',
+            'flex flex-col items-center gap-1 px-2 py-2 min-w-0',
             location.pathname === '/executor/profile' ? 'text-forest-700' : 'text-stone-500'
           )}
         >
-          <User className="w-5 h-5" />
-          <span className="text-xs">Профиль</span>
+          <User className="w-5 h-5 shrink-0" />
+          <span className="text-[10px] leading-tight text-center">Профиль</span>
         </Link>
       </nav>
 

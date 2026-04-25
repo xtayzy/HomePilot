@@ -85,6 +85,21 @@ export async function login(body: LoginBody): Promise<LoginResponse> {
   return data as LoginResponse;
 }
 
+/** Вход через Google (GIS id_token). */
+export async function loginWithGoogle(idToken: string): Promise<LoginResponse> {
+  const res = await fetch(API_BASE + '/auth/google', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id_token: idToken }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = data.detail ?? data.message ?? 'Ошибка входа через Google';
+    throw new Error(typeof message === 'string' ? message : message[0]?.msg ?? 'Ошибка входа через Google');
+  }
+  return data as LoginResponse;
+}
+
 export async function confirmEmail(code: string): Promise<{ message: string }> {
   let res: Response
   try {
@@ -286,15 +301,47 @@ export function createSubscription(body: SubscriptionCreateBody): Promise<{ id: 
   });
 }
 
-export function createPaymentIntent(subscriptionId: string): Promise<{ payment_id: string; redirect_url: string }> {
+export type CreatePaymentIntentResult = {
+  payment_id: string;
+  redirect_url: string | null;
+  /** mock — форма в приложении; stripe — редирект на checkout.stripe.com */
+  provider: 'mock' | 'stripe';
+};
+
+export function createPaymentIntent(
+  subscriptionId: string,
+  options?: { return_url?: string; cancel_url?: string }
+): Promise<CreatePaymentIntentResult> {
   return authFetch(API_BASE + '/payments/create-intent', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ subscription_id: subscriptionId }),
+    body: JSON.stringify({
+      subscription_id: subscriptionId,
+      return_url: options?.return_url,
+      cancel_url: options?.cancel_url,
+    }),
   }).then(async (res) => {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error((data.detail ?? data.message ?? 'Ошибка создания платежа') as string);
-    return data as { payment_id: string; redirect_url: string };
+    const provider = data.provider === 'stripe' ? 'stripe' : 'mock';
+    return {
+      payment_id: data.payment_id as string,
+      redirect_url: (data.redirect_url ?? null) as string | null,
+      provider,
+    };
+  });
+}
+
+/** После возврата из Stripe Checkout (?payment=success&session_id=cs_...) */
+export function completeStripeCheckout(sessionId: string): Promise<{ payment_id: string; status: string; message: string }> {
+  return authFetch(API_BASE + '/payments/stripe/complete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId }),
+  }).then(async (res) => {
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((data.detail ?? data.message ?? 'Не удалось подтвердить оплату Stripe') as string);
+    return data as { payment_id: string; status: string; message: string };
   });
 }
 
@@ -458,6 +505,77 @@ export function rescheduleVisit(visitId: string, body: RescheduleVisitBody): Pro
   });
 }
 
+/** Тикеты поддержки (кабинет клиента / исполнителя, не админ). */
+export type SupportTicketBrief = {
+  id: string;
+  subject: string;
+  status: string;
+  created_at: string;
+};
+
+export type SupportTicketMessage = {
+  id: string;
+  ticket_id: string;
+  author_id: string;
+  author_role: string;
+  body: string;
+  created_at: string;
+};
+
+export type SupportTicketDetail = {
+  id: string;
+  subject: string;
+  status: string;
+  created_at: string;
+  messages: SupportTicketMessage[];
+};
+
+export function listSupportTickets(): Promise<SupportTicketBrief[]> {
+  return apiAuthGet<SupportTicketBrief[]>('/support/tickets');
+}
+
+export function getSupportTicket(ticketId: string): Promise<SupportTicketDetail> {
+  return apiAuthGet<SupportTicketDetail>(`/support/tickets/${encodeURIComponent(ticketId)}`);
+}
+
+export type SupportTicketCreateBody = { subject: string; message: string; visit_id?: string | null };
+
+export async function createSupportTicket(body: SupportTicketCreateBody): Promise<{ ticket_id: string; message: string }> {
+  const res = await authFetch(API_BASE + '/support/tickets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      subject: body.subject.trim(),
+      message: body.message.trim(),
+      visit_id: body.visit_id || null,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const d = data.detail;
+    const msg =
+      typeof d === 'string' ? d : Array.isArray(d) && d[0]?.msg ? d[0].msg : (data.message as string) ?? 'Не удалось создать обращение';
+    throw new Error(msg);
+  }
+  return data as { ticket_id: string; message: string };
+}
+
+export async function addSupportTicketMessage(ticketId: string, body: string): Promise<{ message_id: string }> {
+  const res = await authFetch(API_BASE + `/support/tickets/${encodeURIComponent(ticketId)}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ body: body.trim() }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const d = data.detail;
+    const msg =
+      typeof d === 'string' ? d : Array.isArray(d) && d[0]?.msg ? d[0].msg : (data.message as string) ?? 'Не удалось отправить сообщение';
+    throw new Error(msg);
+  }
+  return data as { message_id: string };
+}
+
 // ——— Executor API ———
 export type ExecutorVisitItem = {
   id: string;
@@ -467,16 +585,41 @@ export type ExecutorVisitItem = {
   status: string;
   address: string | null;
   client_phone: string | null;
+  client_name?: string | null;
+  city_name?: string | null;
+  apartment_type_name?: string | null;
+  cleaning_type?: string | null;
+  cleaning_type_label?: string | null;
+  duration_minutes?: number | null;
+  maps_url?: string | null;
+  address_entrance?: string | null;
+  address_floor?: string | null;
+  address_doorcode?: string | null;
+  premium_linen?: boolean;
+  premium_plants?: boolean;
+  premium_ironing?: boolean;
 };
 
 export type ExecutorVisitDetail = ExecutorVisitItem & {
   address_street: string | null;
   address_building: string | null;
   address_flat: string | null;
+  address_entrance?: string | null;
+  address_floor?: string | null;
+  address_doorcode?: string | null;
   address_comment: string | null;
+  city_name?: string | null;
   client_phone: string | null;
+  client_name?: string | null;
   cleaning_type: string | null;
+  cleaning_type_label?: string | null;
+  duration_minutes?: number | null;
+  maps_url?: string | null;
   apartment_type: string | null;
+  apartment_type_name?: string | null;
+  premium_linen?: boolean;
+  premium_plants?: boolean;
+  premium_ironing?: boolean;
   checklist_items: { id: string; title_ru: string; title_kk: string; sort_order: number }[];
 };
 
@@ -486,10 +629,16 @@ export type ChecklistResultItem = {
   photo_id?: string | null;
 };
 
-export function listExecutorVisits(params?: { date_from?: string; date_to?: string }): Promise<ExecutorVisitItem[]> {
+export function listExecutorVisits(params?: {
+  date_from?: string;
+  date_to?: string;
+  /** через запятую: scheduled,in_progress,... */
+  status?: string;
+}): Promise<ExecutorVisitItem[]> {
   const sp = new URLSearchParams();
   if (params?.date_from) sp.set('date_from', params.date_from);
   if (params?.date_to) sp.set('date_to', params.date_to);
+  if (params?.status) sp.set('status', params.status);
   const qs = sp.toString();
   return authFetch(API_BASE + `/executor/visits${qs ? '?' + qs : ''}`).then(async (res) => {
     const data = await res.json().catch(() => ({}));
@@ -555,5 +704,488 @@ export function noShowExecutorVisit(visitId: string): Promise<{ message: string 
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error((data.detail ?? data.message ?? 'Ошибка') as string);
     return data as { message: string };
+  });
+}
+
+function apiErr(data: Record<string, unknown>): string {
+  const d = data.detail ?? data.message;
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d) && d[0] && typeof (d[0] as { msg?: string }).msg === 'string') {
+    return (d[0] as { msg: string }).msg;
+  }
+  return 'Ошибка запроса';
+}
+
+function buildQuery(params: Record<string, string | number | boolean | undefined>): string {
+  const u = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === '') continue;
+    u.set(k, String(v));
+  }
+  const s = u.toString();
+  return s ? `?${s}` : '';
+}
+
+/** Публичный запрос: сброс пароля (email). */
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+  const res = await fetch(API_BASE + '/auth/forgot-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim() }),
+  });
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) throw new Error(apiErr(data));
+  return data as { message: string };
+}
+
+/** Публичный запрос: новый пароль по коду из письма. */
+export async function resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+  const res = await fetch(API_BASE + '/auth/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: token.trim(), new_password: newPassword }),
+  });
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) throw new Error(apiErr(data));
+  return data as { message: string };
+}
+
+export type RegisterExecutorBody = {
+  invite_code: string;
+  email: string;
+  password: string;
+  name?: string | null;
+  phone?: string | null;
+};
+
+/** Регистрация исполнителя по коду приглашения (ответ как у login). */
+export async function registerExecutor(body: RegisterExecutorBody): Promise<LoginResponse> {
+  const res = await fetch(API_BASE + '/auth/register-executor', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      invite_code: body.invite_code,
+      email: body.email,
+      password: body.password,
+      name: body.name ?? null,
+      phone: body.phone ?? null,
+    }),
+  });
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) throw new Error(apiErr(data));
+  return data as LoginResponse;
+}
+
+export type AdminStats = {
+  clients_count: number;
+  executors_count: number;
+  active_subscriptions_count: number;
+  draft_subscriptions_count: number;
+  visits_today_count: number;
+  visits_next_7_days_count: number;
+  visits_completed_last_7_days_count: number;
+  open_tickets_count: number;
+  support_in_progress_count: number;
+  pending_payments_count: number;
+};
+
+export function adminGetStats(): Promise<AdminStats> {
+  return authFetch(API_BASE + '/admin/stats').then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data as AdminStats;
+  });
+}
+
+export type AdminUserRow = {
+  id: string;
+  email: string;
+  name: string | null;
+  phone: string | null;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+  email_verified_at: string | null;
+  executor_status: string | null;
+};
+
+export type AdminUserVisitRow = {
+  id: string;
+  subscription_id: string;
+  scheduled_date: string;
+  time_slot_start: string;
+  time_slot_end: string;
+  status: string;
+  executor_id: string | null;
+  executor_name: string | null;
+};
+
+export type AdminUserPaymentRow = {
+  id: string;
+  amount_kzt: number;
+  status: string;
+  subscription_id: string | null;
+  created_at: string;
+  paid_at: string | null;
+};
+
+export type AdminUserTicketBrief = {
+  id: string;
+  subject: string;
+  status: string;
+  created_at: string;
+};
+
+export type AdminUserDetail = {
+  user: AdminUserRow & { locale?: string; photo_url?: string | null };
+  subscriptions: SubscriptionItem[];
+  visits: AdminUserVisitRow[];
+  payments: AdminUserPaymentRow[];
+  support_tickets: AdminUserTicketBrief[];
+};
+
+export function adminListUsers(params: {
+  role?: string;
+  search?: string;
+  is_active?: boolean;
+  sort?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ items: AdminUserRow[]; total: number }> {
+  const qs = buildQuery({
+    role: params.role,
+    search: params.search,
+    sort: params.sort,
+    limit: params.limit,
+    offset: params.offset,
+    is_active: params.is_active,
+  });
+  return authFetch(API_BASE + '/admin/users' + qs).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data as { items: AdminUserRow[]; total: number };
+  });
+}
+
+export function adminGetUser(userId: string): Promise<AdminUserDetail> {
+  return authFetch(API_BASE + `/admin/users/${encodeURIComponent(userId)}`).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data as AdminUserDetail;
+  });
+}
+
+export function adminPatchUser(userId: string, body: { is_active?: boolean }): Promise<AdminUserRow> {
+  return authFetch(API_BASE + `/admin/users/${encodeURIComponent(userId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data as AdminUserRow;
+  });
+}
+
+export type AdminSubscriptionRow = SubscriptionItem & {
+  user_email?: string | null;
+  user_name?: string | null;
+  tariff_code?: string | null;
+  executor_name?: string | null;
+  created_at?: string;
+};
+
+export function adminListSubscriptions(params: {
+  status?: string;
+  user_id?: string;
+  tariff_id?: string;
+  created_from?: string;
+  created_to?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ items: AdminSubscriptionRow[]; total: number }> {
+  const qs = buildQuery({
+    status: params.status,
+    user_id: params.user_id,
+    tariff_id: params.tariff_id,
+    created_from: params.created_from,
+    created_to: params.created_to,
+    limit: params.limit,
+    offset: params.offset,
+  });
+  return authFetch(API_BASE + '/admin/subscriptions' + qs).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data as { items: AdminSubscriptionRow[]; total: number };
+  });
+}
+
+export function adminGetSubscription(subscriptionId: string): Promise<Record<string, unknown>> {
+  return authFetch(API_BASE + `/admin/subscriptions/${encodeURIComponent(subscriptionId)}`).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data;
+  });
+}
+
+export function adminPatchSubscription(
+  subscriptionId: string,
+  body: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  return authFetch(API_BASE + `/admin/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data;
+  });
+}
+
+export type AdminVisitRow = {
+  id: string;
+  subscription_id: string;
+  executor_id: string | null;
+  executor_name: string | null;
+  client_email: string | null;
+  scheduled_date: string;
+  time_slot_start: string;
+  time_slot_end: string;
+  status: string;
+  completed_at: string | null;
+};
+
+export function adminListVisits(params: {
+  scheduled_date?: string;
+  date_from?: string;
+  date_to?: string;
+  executor_id?: string;
+  subscription_id?: string;
+  status?: string;
+  client_search?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ items: AdminVisitRow[]; total: number }> {
+  const qs = buildQuery({
+    scheduled_date: params.scheduled_date,
+    date_from: params.date_from,
+    date_to: params.date_to,
+    executor_id: params.executor_id,
+    subscription_id: params.subscription_id,
+    status: params.status,
+    client_search: params.client_search,
+    limit: params.limit,
+    offset: params.offset,
+  });
+  return authFetch(API_BASE + '/admin/visits' + qs).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data as { items: AdminVisitRow[]; total: number };
+  });
+}
+
+export function adminPatchVisit(
+  visitId: string,
+  body: { status?: string; new_scheduled_date?: string; new_time_slot_start?: string; new_time_slot_end?: string }
+): Promise<{ message: string; visit_id: string }> {
+  return authFetch(API_BASE + `/admin/visits/${encodeURIComponent(visitId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data as { message: string; visit_id: string };
+  });
+}
+
+export function adminAssignExecutor(visitId: string, executorId: string): Promise<{ message: string; visit_id: string }> {
+  return authFetch(API_BASE + `/admin/visits/${encodeURIComponent(visitId)}/assign-executor`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ executor_id: executorId }),
+  }).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data as { message: string; visit_id: string };
+  });
+}
+
+export function adminUnassignVisitExecutor(visitId: string): Promise<{ message: string; visit_id: string }> {
+  return authFetch(API_BASE + `/admin/visits/${encodeURIComponent(visitId)}/unassign-executor`, {
+    method: 'POST',
+  }).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data as { message: string; visit_id: string };
+  });
+}
+
+export type AdminExecutorRow = {
+  id: string;
+  email: string;
+  name: string | null;
+  phone: string | null;
+  is_active: boolean;
+  executor_status: string | null;
+  photo_url: string | null;
+  visits_upcoming_14d: number;
+};
+
+export function adminListExecutors(): Promise<AdminExecutorRow[]> {
+  return authFetch(API_BASE + '/admin/executors').then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as unknown;
+    if (!res.ok) throw new Error(apiErr((data as Record<string, unknown>) ?? {}));
+    return data as AdminExecutorRow[];
+  });
+}
+
+export function adminPatchExecutor(
+  executorId: string,
+  body: { executor_status?: string; is_active?: boolean }
+): Promise<{ message: string; executor_id: string }> {
+  return authFetch(API_BASE + `/admin/executors/${encodeURIComponent(executorId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data as { message: string; executor_id: string };
+  });
+}
+
+export function adminCreateExecutorInvite(): Promise<{ invite_code: string; expires_at: string; link: string }> {
+  return authFetch(API_BASE + '/admin/executors/invite', { method: 'POST' }).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data as { invite_code: string; expires_at: string; link: string };
+  });
+}
+
+export type AdminExecutorInviteRow = {
+  id: string;
+  code: string;
+  expires_at: string;
+  created_at: string;
+  used_by_id: string | null;
+  used_at: string | null;
+};
+
+export function adminListExecutorInvites(limit = 40): Promise<AdminExecutorInviteRow[]> {
+  const qs = buildQuery({ limit });
+  return authFetch(API_BASE + '/admin/executor-invites' + qs).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as unknown;
+    if (!res.ok) throw new Error(apiErr((data as Record<string, unknown>) ?? {}));
+    return data as AdminExecutorInviteRow[];
+  });
+}
+
+export type AdminTicketRow = {
+  id: string;
+  subject: string;
+  status: string;
+  user_email: string | null;
+  user_id: string;
+  visit_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export function adminListTickets(params: {
+  status?: string;
+  search?: string;
+  user_id?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ items: AdminTicketRow[]; total: number }> {
+  const qs = buildQuery({
+    status: params.status,
+    search: params.search,
+    user_id: params.user_id,
+    limit: params.limit,
+    offset: params.offset,
+  });
+  return authFetch(API_BASE + '/admin/support/tickets' + qs).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data as { items: AdminTicketRow[]; total: number };
+  });
+}
+
+export type AdminTicketDetail = {
+  id: string;
+  subject: string;
+  status: string;
+  user_id: string;
+  user_email: string | null;
+  visit_id: string | null;
+  created_at: string;
+  messages: { id: string; author_id: string; author_role: string; body: string; created_at: string }[];
+};
+
+export function adminGetTicket(ticketId: string): Promise<AdminTicketDetail> {
+  return authFetch(API_BASE + `/admin/support/tickets/${encodeURIComponent(ticketId)}`).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data as AdminTicketDetail;
+  });
+}
+
+export function adminReplyTicket(ticketId: string, body: string): Promise<{ message_id: string }> {
+  return authFetch(API_BASE + `/admin/support/tickets/${encodeURIComponent(ticketId)}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ body }),
+  }).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data as { message_id: string };
+  });
+}
+
+export function adminPatchTicket(ticketId: string, status: string): Promise<{ message: string }> {
+  return authFetch(API_BASE + `/admin/support/tickets/${encodeURIComponent(ticketId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  }).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data as { message: string };
+  });
+}
+
+export type AdminPaymentRow = {
+  id: string;
+  user_id: string;
+  subscription_id: string | null;
+  amount_kzt: number;
+  status: string;
+  created_at: string;
+  paid_at: string | null;
+};
+
+export function adminListPayments(params: {
+  user_id?: string;
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ items: AdminPaymentRow[]; total: number }> {
+  const qs = buildQuery({
+    user_id: params.user_id,
+    status: params.status,
+    date_from: params.date_from,
+    date_to: params.date_to,
+    limit: params.limit,
+    offset: params.offset,
+  });
+  return authFetch(API_BASE + '/admin/payments' + qs).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(apiErr(data));
+    return data as { items: AdminPaymentRow[]; total: number };
   });
 }

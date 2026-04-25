@@ -1,8 +1,20 @@
 """Subscription schemas."""
+import enum
 from datetime import date, time, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+def cleaning_type_to_str(value: object) -> str | None:
+    """Тариф в БД может отдавать enum или str — нельзя вызывать .value у str."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    if isinstance(value, enum.Enum):
+        return value.value
+    return str(value)
 
 
 class SubscriptionAddress(BaseModel):
@@ -78,3 +90,11 @@ class SubscriptionResponse(BaseModel):
     executor_id: UUID | None
     auto_renew: bool
     price_month_kzt: int | None = None  # computed
+
+
+class SubscriptionOut(SubscriptionResponse):
+    """Ответ API: базовые поля + вычисляемые из тарифа/типа квартиры."""
+
+    tariff_cleaning_type: str | None = None
+    apartment_type_duration_light_min: int | None = None
+    apartment_type_duration_full_min: int | None = None

@@ -38,3 +38,8 @@ npm-debug.log*
 # Docker
 *.pid
 design/
+
+# Local / runtime (не коммитить пользовательские файлы и заметки с секретами)
+backend/uploads/
+payment_details.txt
+*.tsbuildinfo

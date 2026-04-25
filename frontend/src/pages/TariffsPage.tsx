@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
-import { Check, ArrowRight, Sparkles, Clock, Shield } from 'lucide-react'
+import { Check, ArrowRight, Clock, Shield } from 'lucide-react'
+import { BrandMark } from '@/components/BrandLogo'
 import { Button } from '@/components/ui/button'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
@@ -118,7 +119,7 @@ export function TariffsPage() {
           transition={{ duration: 0.6 }}
         >
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-forest-100 shadow-sm mb-8">
-            <Sparkles className="w-4 h-4 text-forest-600" />
+            <BrandMark className="h-5 w-5 rounded-full ring-1 ring-forest-900/15" />
             <span className="text-sm font-medium text-forest-900">Прозрачные цены в тенге</span>
           </div>
           <h1 className="text-5xl md:text-6xl font-serif text-forest-950 mb-6">

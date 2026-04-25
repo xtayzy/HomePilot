@@ -20,13 +20,22 @@ function formatTime(s: string): string {
 
 function formatDate(s: string): string {
   if (!s) return '—'
-  const d = new Date(s + 'Z')
+  const d = new Date(s + 'T12:00:00')
   const months = 'янв фев мар апр май июн июл авг сен окт ноя дек'.split(' ')
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
 }
 
+function formatDuration(mins: number | null | undefined): string {
+  if (mins == null || mins <= 0) return ''
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  if (h <= 0) return `${m} мин`
+  if (m === 0) return `${h} ч`
+  return `${h} ч ${m} мин`
+}
+
 function addressLine(v: ExecutorVisitDetail): string {
-  const parts = [v.address_street, v.address_building, v.address_flat].filter(Boolean)
+  const parts = [v.city_name, v.address_street, v.address_building, v.address_flat].filter(Boolean)
   return parts.length ? parts.join(', ') : (v.address || '—')
 }
 
@@ -137,9 +146,11 @@ export function ExecutorVisitDetailPage() {
   }
 
   const addr = addressLine(visit)
-  const mapUrl = addr
-    ? `https://yandex.ru/maps/?text=${encodeURIComponent(addr)}`
-    : null
+  const mapUrl = visit.maps_url || (addr ? `https://yandex.ru/maps/?text=${encodeURIComponent(addr)}` : null)
+  const cleaningTitle =
+    visit.cleaning_type_label ||
+    (visit.cleaning_type === 'light' ? 'Лёгкая уборка' : visit.cleaning_type ? 'Полная уборка' : 'Уборка')
+  const aptLabel = visit.apartment_type_name || visit.apartment_type
 
   const isScheduled = visit.status === 'scheduled' || visit.status === 'rescheduled'
   const isInProgress = visit.status === 'in_progress'
@@ -167,11 +178,15 @@ export function ExecutorVisitDetailPage() {
         <CardHeader className="pb-4">
           <CardDescription>
             {formatDate(visit.scheduled_date)} • {formatTime(visit.time_slot_start)} – {formatTime(visit.time_slot_end)}
+            {formatDuration(visit.duration_minutes) ? ` • ${formatDuration(visit.duration_minutes)}` : ''}
           </CardDescription>
           <CardTitle className="text-xl font-serif">
-            Визит: {visit.cleaning_type === 'light' ? 'Лёгкая уборка' : 'Полная уборка'}
-            {visit.apartment_type && ` • ${visit.apartment_type}`}
+            Визит: {cleaningTitle}
+            {aptLabel && ` • ${aptLabel}`}
           </CardTitle>
+          {visit.client_name && (
+            <p className="text-sm text-stone-600 pt-1">Клиент: {visit.client_name}</p>
+          )}
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
@@ -180,6 +195,15 @@ export function ExecutorVisitDetailPage() {
               Адрес
             </p>
             <p className="text-forest-950">{addr}</p>
+            {(visit.address_entrance || visit.address_floor || visit.address_doorcode) && (
+              <p className="text-sm text-stone-600 mt-1">
+                {visit.address_entrance && `Подъезд ${visit.address_entrance}`}
+                {visit.address_entrance && visit.address_floor && ' · '}
+                {visit.address_floor && `Этаж ${visit.address_floor}`}
+                {(visit.address_entrance || visit.address_floor) && visit.address_doorcode && ' · '}
+                {visit.address_doorcode && `Домофон ${visit.address_doorcode}`}
+              </p>
+            )}
             {mapUrl && (
               <a
                 href={mapUrl}

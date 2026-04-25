@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { Link, Outlet } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
-import { Sparkles, Menu, X, LayoutDashboard } from 'lucide-react'
+import { Menu, X, LayoutDashboard } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { BrandLockup } from '@/components/BrandLogo'
 
 export function Layout() {
   const { isAuthenticated, user, logout } = useAuth()
@@ -26,15 +27,7 @@ export function Layout() {
         }`}
       >
         <div className="container mx-auto px-4 sm:px-6 flex items-center justify-between gap-4">
-          <Link
-            to="/"
-            className="flex items-center gap-2 font-serif font-bold text-lg sm:text-2xl text-forest-900 shrink-0 min-w-0"
-          >
-            <div className="bg-forest-900 p-2 rounded-full text-cream-50">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            HomePilot
-          </Link>
+          <BrandLockup className="shrink-0 min-w-0" />
 
           <nav className="hidden md:flex items-center gap-10 text-sm font-medium text-stone-600">
             <Link to="/" className="hover:text-forest-900 transition-colors">
@@ -199,10 +192,7 @@ export function Layout() {
       <footer className="bg-forest-950 text-cream-100 py-12 sm:py-16 md:py-20">
         <div className="container mx-auto px-4 sm:px-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 sm:gap-10 md:gap-12">
           <div className="space-y-4 sm:space-y-6 sm:col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2 font-serif font-bold text-xl sm:text-2xl text-cream-50">
-              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
-              HomePilot
-            </div>
+            <BrandLockup variant="light" className="justify-start" />
             <p className="text-sm text-cream-200/60 leading-relaxed max-w-xs">
               Новый уровень заботы о доме в Алматы. Мы приносим чистоту отельного уровня в ваше личное пространство.
             </p>

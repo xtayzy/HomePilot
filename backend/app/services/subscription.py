@@ -1,8 +1,10 @@
 """Subscription service: create, activate, pause, cancel, generate visits."""
 from datetime import date, datetime, time, timedelta, timezone
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models import Subscription, TariffPrice, Visit
 from app.models.subscription import SubscriptionStatus
@@ -21,6 +23,34 @@ async def get_price_for_subscription(
     )
     row = result.scalar_one_or_none()
     return row if row is not None else None
+
+
+async def load_subscription_eager(
+    db: AsyncSession,
+    subscription_id: UUID,
+    *,
+    with_city: bool = False,
+    with_user: bool = False,
+    with_executor: bool = False,
+    with_visits: bool = False,
+) -> Subscription:
+    """Повторная загрузка подписки с нужными связями (без async-unsafe lazy load после flush)."""
+    opts = [
+        selectinload(Subscription.tariff),
+        selectinload(Subscription.apartment_type),
+    ]
+    if with_city:
+        opts.append(selectinload(Subscription.city))
+    if with_user:
+        opts.append(selectinload(Subscription.user))
+    if with_executor:
+        opts.append(selectinload(Subscription.executor))
+    if with_visits:
+        opts.append(selectinload(Subscription.visits))
+    result = await db.execute(
+        select(Subscription).where(Subscription.id == subscription_id).options(*opts)
+    )
+    return result.scalar_one()
 
 
 async def create_subscription(db: AsyncSession, user_id, payload) -> tuple[Subscription, int]:

@@ -10,6 +10,14 @@ from fastapi.staticfiles import StaticFiles
 from app.config import get_settings
 from app.api.v1.router import api_v1_router
 from app.core.exceptions import AppException, app_exception_handler
+from app.openapi_config import (
+    API_DESCRIPTION,
+    CONTACT,
+    LICENSE_INFO,
+    OPENAPI_TAGS,
+    attach_custom_openapi,
+    swagger_ui_parameters,
+)
 
 
 @asynccontextmanager
@@ -23,12 +31,25 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
         title="HomePilot API",
-        description="API сервиса подписки на бытовые услуги (уборка)",
+        description=API_DESCRIPTION,
         version="1.0.0",
+        openapi_tags=OPENAPI_TAGS,
+        contact=CONTACT,
+        license_info=LICENSE_INFO,
         lifespan=lifespan,
         docs_url="/docs",
         redoc_url="/redoc",
+        swagger_ui_parameters=swagger_ui_parameters(),
     )
+    attach_custom_openapi(app)
+
+    openapi_dir = Path(__file__).resolve().parent.parent / "static" / "openapi"
+    if openapi_dir.is_dir():
+        app.mount(
+            "/openapi-assets",
+            StaticFiles(directory=str(openapi_dir)),
+            name="openapi_assets",
+        )
 
     origins = settings.CORS_ORIGINS
     if isinstance(origins, str):

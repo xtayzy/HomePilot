@@ -3,6 +3,7 @@ import asyncio
 from datetime import datetime, timezone
 
 from sqlalchemy import select, delete
+from app.config import get_settings
 from app.db.session import async_session_maker
 from app.db.base import Base
 from app.models import City, ApartmentType, Tariff, TariffPrice, ChecklistTemplate, ChecklistItem, User, ExecutorZone
@@ -152,6 +153,33 @@ async def seed_executors(session) -> None:
     await session.flush()
 
 
+async def seed_staff_users(session) -> None:
+    """Админ и поддержка для панели /admin (только если записи с таким email ещё нет)."""
+    settings = get_settings()
+    now = datetime.now(timezone.utc)
+    rows = [
+        (settings.SEED_ADMIN_EMAIL, settings.SEED_ADMIN_PASSWORD, UserRole.admin, "Администратор"),
+        (settings.SEED_SUPPORT_EMAIL, settings.SEED_SUPPORT_PASSWORD, UserRole.support, "Поддержка"),
+    ]
+    for email, password, role, name in rows:
+        r = await session.execute(select(User).where(User.email == email))
+        if r.scalar_one_or_none():
+            continue
+        session.add(
+            User(
+                email=email,
+                password_hash=get_password_hash(password),
+                role=role,
+                name=name,
+                locale="ru",
+                is_active=True,
+                email_verified_at=now,
+                executor_status=None,
+            )
+        )
+    await session.flush()
+
+
 async def seed_executor_zones(session) -> None:
     """Привязывает исполнителей к городу Алматы для автоназначения визитов."""
     city = (await session.execute(select(City).where(City.code == "almaty"))).scalar_one_or_none()
@@ -183,9 +211,13 @@ async def run_seed() -> None:
         await seed_tariffs_and_prices(session)
         await seed_checklist_templates(session)
         await seed_executors(session)
+        await seed_staff_users(session)
         await seed_executor_zones(session)
         await session.commit()
     print("Seed completed.")
+    settings = get_settings()
+    print(f"\nАдмин-панель: {settings.SEED_ADMIN_EMAIL} / {settings.SEED_ADMIN_PASSWORD}")
+    print(f"Поддержка: {settings.SEED_SUPPORT_EMAIL} / {settings.SEED_SUPPORT_PASSWORD}")
     print("\nТестовые исполнители:")
     for email, password, name in EXECUTOR_CREDENTIALS:
         print(f"  {email} / {password} ({name})")

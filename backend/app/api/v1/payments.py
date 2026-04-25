@@ -13,8 +13,8 @@ from app.models import Payment
 from app.schemas.payment import (
     ConfirmPaymentRequest,
     CreatePaymentIntentRequest,
-    CreatePaymentIntentResponse,
     PaymentResponse,
+    StripeCheckoutCompleteRequest,
     SubmitCardRequest,
 )
 from app.services import payment as payment_service
@@ -40,12 +40,34 @@ async def create_payment_intent(
     current_user: CurrentUser,
     db: DbSession,
 ):
-    payment, redirect_url, _ = await payment_service.create_payment_intent(
-        db, payload.subscription_id, current_user.id, payload.return_url
+    payment, redirect_url, _, provider = await payment_service.create_payment_intent(
+        db,
+        payload.subscription_id,
+        current_user.id,
+        payload.return_url,
+        payload.cancel_url,
     )
     return {
         "payment_id": payment.id,
         "redirect_url": redirect_url,
+        "provider": provider,
+    }
+
+
+@router.post("/stripe/complete", response_model=dict)
+async def stripe_checkout_complete(
+    payload: StripeCheckoutCompleteRequest,
+    current_user: CurrentUser,
+    db: DbSession,
+):
+    """Если webhook Stripe не дошёл, после return с session_id активируем платёж так же, как по webhook."""
+    payment = await payment_service.complete_stripe_checkout_session(
+        db, current_user.id, payload.session_id.strip()
+    )
+    return {
+        "payment_id": str(payment.id),
+        "status": str(payment.status),
+        "message": "Оплата подтверждена, подписка активирована.",
     }
 
 
@@ -73,6 +95,13 @@ async def submit_card(
     payment = result.scalar_one_or_none()
     if not payment:
         raise NotFoundError("Платёж не найден или уже проведён")
+    if payment.external_id and str(payment.external_id).startswith("cs_"):
+        from app.core.exceptions import AppException
+
+        raise AppException(
+            "Этот платёж оформляется через Stripe — откройте страницу оплаты Stripe.",
+            status_code=400,
+        )
     result = await db.execute(
         select(PaymentConfirmCode).where(
             PaymentConfirmCode.payment_id == payload.payment_id,

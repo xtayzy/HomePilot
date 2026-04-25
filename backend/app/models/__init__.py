@@ -12,6 +12,7 @@ from app.models.executor_invite import ExecutorInvite
 from app.models.executor_zone import ExecutorZone
 from app.models.email_confirm_code import EmailConfirmCode
 from app.models.payment_confirm_code import PaymentConfirmCode
+from app.models.password_reset_code import PasswordResetCode
 
 __all__ = [
     "User",
@@ -33,4 +34,5 @@ __all__ = [
     "ExecutorZone",
     "EmailConfirmCode",
     "PaymentConfirmCode",
+    "PasswordResetCode",
 ]

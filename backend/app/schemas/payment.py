@@ -26,6 +26,12 @@ class ConfirmPaymentRequest(BaseModel):
     code: str = Field(..., min_length=6, max_length=6, description="6-значный код подтверждения списания")
 
 
+class StripeCheckoutCompleteRequest(BaseModel):
+    """После success redirect из Stripe Checkout (session_id в query)."""
+
+    session_id: str = Field(..., min_length=8, max_length=255, description="cs_... из Stripe")
+
+
 class CreatePaymentIntentResponse(BaseModel):
     payment_id: UUID
     redirect_url: str | None = None

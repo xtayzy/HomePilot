@@ -5,13 +5,15 @@ import {
   Calendar,
   CalendarRange,
   CreditCard,
+  Headset,
   LogOut,
-  Sparkles,
   User,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/contexts/AuthContext'
+import { BrandLockup } from '@/components/BrandLogo'
 import { cn } from '@/lib/utils'
+import { getPostLoginPath } from '@/lib/postLoginRedirect'
 
 export function DashboardLayout() {
   const location = useLocation()
@@ -25,8 +27,12 @@ export function DashboardLayout() {
     }
     if (user?.role === 'executor') {
       navigate('/executor', { replace: true })
+      return
     }
-  }, [isAuthenticated, user?.role, navigate, location.pathname])
+    if (user?.role === 'admin' || user?.role === 'support') {
+      navigate(getPostLoginPath(user), { replace: true })
+    }
+  }, [isAuthenticated, user, navigate, location.pathname])
 
   if (isAuthenticated === false) {
     return null
@@ -37,6 +43,7 @@ export function DashboardLayout() {
     { icon: CalendarRange, label: 'Настройка слотов', path: '/dashboard/slots' },
     { icon: Calendar, label: 'Мои слоты', path: '/dashboard/visits' },
     { icon: CreditCard, label: 'Подписка', path: '/dashboard/subscription' },
+    { icon: Headset, label: 'Поддержка', path: '/dashboard/support' },
     { icon: User, label: 'Профиль', path: '/dashboard/profile' },
   ] as const
 
@@ -49,20 +56,15 @@ export function DashboardLayout() {
     <div className="min-h-screen bg-cream-50 flex">
       <aside className="w-64 lg:w-72 bg-white border-r border-cream-200 hidden md:flex flex-col fixed h-full z-10 shrink-0">
         <div className="p-6 lg:p-8 border-b border-cream-100">
-          <Link
-            to="/"
-            className="flex items-center gap-2 font-serif font-bold text-2xl text-forest-900"
-          >
-            <div className="bg-forest-900 p-2 rounded-full text-cream-50">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            HomePilot
-          </Link>
+          <BrandLockup className="text-2xl" />
         </div>
         <nav className="flex-1 p-4 lg:p-6 space-y-2 overflow-y-auto">
           {sidebarItems.map((item) => {
             const Icon = item.icon
-            const isActive = location.pathname === item.path
+            const isActive =
+              item.path === '/dashboard/support'
+                ? location.pathname.startsWith('/dashboard/support')
+                : location.pathname === item.path
             return (
               <Link to={item.path} key={item.path} className="block min-w-0">
                 <Button
@@ -100,65 +102,69 @@ export function DashboardLayout() {
       </aside>
 
       <div className="md:hidden fixed top-0 w-full bg-white border-b border-cream-200 z-50 px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between safe-area-pt">
-        <Link
-          to="/"
-          className="flex items-center gap-2 font-serif font-bold text-lg sm:text-xl text-forest-900 min-w-0"
-        >
-          <Sparkles className="w-5 h-5 shrink-0" />
-          <span className="truncate">HomePilot</span>
-        </Link>
+        <BrandLockup className="text-lg sm:text-xl min-w-0" textClassName="truncate" />
       </div>
 
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-cream-200 z-50 flex justify-around items-center py-2 safe-area-pb">
         <Link
           to="/dashboard"
           className={cn(
-            'flex flex-col items-center gap-1 px-3 py-2',
+            'flex flex-col items-center gap-1 px-1.5 py-2 min-w-0',
             location.pathname === '/dashboard' ? 'text-forest-700' : 'text-stone-500'
           )}
         >
-          <LayoutDashboard className="w-5 h-5" />
-          <span className="text-xs">Обзор</span>
+          <LayoutDashboard className="w-5 h-5 shrink-0" />
+          <span className="text-[10px] leading-tight text-center">Обзор</span>
         </Link>
         <Link
           to="/dashboard/slots"
           className={cn(
-            'flex flex-col items-center gap-1 px-3 py-2',
+            'flex flex-col items-center gap-1 px-1.5 py-2 min-w-0',
             location.pathname === '/dashboard/slots' ? 'text-forest-700' : 'text-stone-500'
           )}
         >
-          <CalendarRange className="w-5 h-5" />
-          <span className="text-xs">Настройка слотов</span>
+          <CalendarRange className="w-5 h-5 shrink-0" />
+          <span className="text-[10px] leading-tight text-center">Слоты</span>
         </Link>
         <Link
           to="/dashboard/visits"
           className={cn(
-            'flex flex-col items-center gap-1 px-3 py-2',
-            location.pathname === '/dashboard/visits' ? 'text-forest-700' : 'text-stone-500'
+            'flex flex-col items-center gap-1 px-1.5 py-2 min-w-0',
+            location.pathname.startsWith('/dashboard/visits') ? 'text-forest-700' : 'text-stone-500'
           )}
         >
-          <Calendar className="w-5 h-5" />
-          <span className="text-xs">Визиты</span>
+          <Calendar className="w-5 h-5 shrink-0" />
+          <span className="text-[10px] leading-tight text-center">Визиты</span>
         </Link>
         <Link
           to="/dashboard/subscription"
           className={cn(
-            'flex flex-col items-center gap-1 px-3 py-2',
+            'flex flex-col items-center gap-1 px-2 py-2 min-w-0',
             location.pathname === '/dashboard/subscription' ? 'text-forest-700' : 'text-stone-500'
           )}
         >
-          <CreditCard className="w-5 h-5" />
-          <span className="text-xs">Подписка</span>
+          <CreditCard className="w-5 h-5 shrink-0" />
+          <span className="text-[10px] leading-tight text-center">Подписка</span>
+        </Link>
+        <Link
+          to="/dashboard/support"
+          className={cn(
+            'flex flex-col items-center gap-1 px-2 py-2 min-w-0',
+            location.pathname.startsWith('/dashboard/support') ? 'text-forest-700' : 'text-stone-500'
+          )}
+        >
+          <Headset className="w-5 h-5 shrink-0" />
+          <span className="text-[10px] leading-tight text-center">Помощь</span>
         </Link>
         <Link
           to="/dashboard/profile"
           className={cn(
-            'flex flex-col items-center gap-1 px-3 py-2',
+            'flex flex-col items-center gap-1 px-2 py-2 min-w-0',
             location.pathname === '/dashboard/profile' ? 'text-forest-700' : 'text-stone-500'
           )}
         >
-          <User className="w-5 h-5" />
-          <span className="text-xs">Профиль</span>
+          <User className="w-5 h-5 shrink-0" />
+          <span className="text-[10px] leading-tight text-center">Профиль</span>
         </Link>
       </nav>
 

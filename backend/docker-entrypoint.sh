@@ -1,18 +1,22 @@
 #!/bin/sh
 set -e
 
-echo "Waiting for PostgreSQL at db:5433..."
+# Порт PostgreSQL: в docker-compose.prod.yml — 5432; в локальном docker-compose.yml может быть 5433.
+DB_PORT="${DB_PORT:-5432}"
+
+echo "Waiting for PostgreSQL at db:${DB_PORT}..."
 for i in $(seq 1 30); do
-  if python -c "
-import socket
+  if DB_PORT="$DB_PORT" python -c "
+import os, socket
+port = int(os.environ.get('DB_PORT', '5432'))
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.settimeout(2)
 try:
-  s.connect(('db', 5433))
-  s.close()
-  exit(0)
+    s.connect(('db', port))
+    s.close()
+    exit(0)
 except Exception:
-  exit(1)
+    exit(1)
 " 2>/dev/null; then
     echo "PostgreSQL is ready."
     break

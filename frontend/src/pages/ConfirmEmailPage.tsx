@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Sparkles, CheckCircle, Mail } from 'lucide-react'
+import { CheckCircle, Mail } from 'lucide-react'
+import { BrandLockup } from '@/components/BrandLogo'
 import { confirmEmail } from '@/api/client'
 
 export function ConfirmEmailPage() {
@@ -65,15 +66,7 @@ export function ConfirmEmailPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-cream-50 px-4 sm:px-6 py-8 sm:py-12">
       <div className="w-full max-w-md space-y-6 sm:space-y-8 text-center min-w-0">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 font-serif font-bold text-xl sm:text-2xl text-forest-900"
-        >
-          <div className="bg-forest-900 p-1.5 sm:p-2 rounded-full text-cream-50 shrink-0">
-            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
-          </div>
-          HomePilot
-        </Link>
+        <BrandLockup className="inline-flex justify-center" />
 
         <div className="px-2">
           <h1 className="text-xl sm:text-2xl font-serif font-medium text-forest-950 mb-2">

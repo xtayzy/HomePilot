@@ -161,6 +161,13 @@ export function ExecutorOverview() {
                   <Clock className="w-4 h-4" />
                   {formatTime(nextVisit.time_slot_start)} – {formatTime(nextVisit.time_slot_end)}
                 </div>
+                {(nextVisit.client_name || nextVisit.cleaning_type_label) && (
+                  <p className="text-sm text-forest-200">
+                    {nextVisit.client_name && <span className="font-medium text-forest-100">{nextVisit.client_name}</span>}
+                    {nextVisit.client_name && nextVisit.cleaning_type_label && ' · '}
+                    {nextVisit.cleaning_type_label}
+                  </p>
+                )}
                 {nextVisit.address && (
                   <div className="flex items-start gap-2 text-forest-100 text-sm">
                     <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
@@ -245,6 +252,7 @@ export function ExecutorOverview() {
                     <p className="text-xs sm:text-sm text-stone-500">
                       {formatDate(visit.scheduled_date)} • {formatTime(visit.time_slot_start)} –{' '}
                       {formatTime(visit.time_slot_end)}
+                      {visit.cleaning_type_label ? ` • ${visit.cleaning_type_label}` : ''}
                       {visit.address ? ` • ${visit.address}` : ''}
                     </p>
                   </div>

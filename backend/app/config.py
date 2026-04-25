@@ -61,9 +61,14 @@ class Settings(BaseSettings):
     AWS_SECRET_KEY: str | None = None
 
     # Payment
-    PAYMENT_PROVIDER: str = Field(default="mock")
+    PAYMENT_PROVIDER: str = Field(default="mock", description="mock | stripe")
     PAYMENT_API_KEY: str | None = None
     PAYMENT_WEBHOOK_SECRET: str | None = None
+    STRIPE_SECRET_KEY: str | None = Field(default=None, description="Secret key для Stripe API (test или live)")
+    STRIPE_WEBHOOK_SECRET: str | None = Field(
+        default=None,
+        description="Signing secret для Stripe Webhooks (whsec_...)",
+    )
 
     # Email
     SMTP_HOST: str | None = None
@@ -87,6 +92,15 @@ class Settings(BaseSettings):
 
     # Locale
     LOCALE_DEFAULT: str = Field(default="ru", description="ru | kk")
+
+    # Google Sign-In (GIS id_token) — тот же Client ID, что и на фронте (VITE_GOOGLE_CLIENT_ID).
+    GOOGLE_CLIENT_ID: str | None = Field(default=None, description="OAuth 2.0 Client ID для проверки id_token")
+
+    # Сид: учётки админ-панели (создаются только если пользователя с таким email ещё нет).
+    SEED_ADMIN_EMAIL: str = Field(default="admin@homepilot.kz")
+    SEED_ADMIN_PASSWORD: str = Field(default="admin123", min_length=8)
+    SEED_SUPPORT_EMAIL: str = Field(default="support@homepilot.kz")
+    SEED_SUPPORT_PASSWORD: str = Field(default="support123", min_length=8)
 
 
 @lru_cache

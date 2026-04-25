@@ -12,6 +12,7 @@ import {
   getStoredUser,
   setAuthTokens,
   login as apiLogin,
+  loginWithGoogle as apiLoginWithGoogle,
   register as apiRegister,
   AUTH_CLEARED_EVENT,
   type LoginBody,
@@ -26,6 +27,7 @@ type AuthState = {
 
 type AuthContextValue = AuthState & {
   login: (body: LoginBody) => Promise<UserProfile>;
+  loginWithGoogle: (idToken: string) => Promise<UserProfile>;
   register: (body: RegisterBody) => Promise<void>;
   logout: () => void;
   setUser: (user: UserProfile | null) => void;
@@ -54,6 +56,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.user;
   }, []);
 
+  const loginWithGoogle = useCallback(async (idToken: string) => {
+    const data = await apiLoginWithGoogle(idToken);
+    setAuthTokens(data.access_token, data.refresh_token, data.user);
+    setUserState(data.user);
+    return data.user;
+  }, []);
+
   const register = useCallback(async (body: RegisterBody) => {
     await apiRegister(body);
   }, []);
@@ -68,11 +77,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isAuthenticated: !!user,
       login,
+      loginWithGoogle,
       register,
       logout,
       setUser,
     }),
-    [user, login, register, logout, setUser]
+    [user, login, loginWithGoogle, register, logout, setUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

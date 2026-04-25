@@ -3,7 +3,8 @@ import { useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Sparkles, User } from 'lucide-react'
+import { User } from 'lucide-react'
+import { BrandMark } from '@/components/BrandLogo'
 
 export function DashboardPage() {
   const { user, isAuthenticated } = useAuth()
@@ -65,7 +66,7 @@ export function DashboardPage() {
 
           <Card className="border-cream-200 shadow-sm bg-forest-50/30">
             <CardContent className="p-6 flex items-center gap-4">
-              <Sparkles className="w-8 h-8 text-forest-600 shrink-0" />
+              <BrandMark className="h-10 w-10 rounded-xl ring-2 ring-forest-900/10 shrink-0" />
               <div>
                 <p className="font-medium text-forest-900">Подписка и слоты</p>
                 <p className="text-sm text-stone-500">

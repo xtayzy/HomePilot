@@ -163,8 +163,16 @@ export function BookingPage() {
         premium_ironing: formData.premium_ironing,
         accept_offer: true,
       })
-      const { payment_id } = await createPaymentIntent(sub.id)
-      setPaymentId(payment_id)
+      const origin = typeof window !== 'undefined' ? window.location.origin : ''
+      const intent = await createPaymentIntent(sub.id, {
+        return_url: origin ? `${origin}/dashboard/slots?payment=success` : undefined,
+        cancel_url: origin ? `${origin}/booking` : undefined,
+      })
+      if (intent.provider === 'stripe' && intent.redirect_url) {
+        window.location.assign(intent.redirect_url)
+        return
+      }
+      setPaymentId(intent.payment_id)
       setCurrentStep(4)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ошибка создания подписки')
